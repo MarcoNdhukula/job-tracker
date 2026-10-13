@@ -1,8 +1,16 @@
 import { useState, type FormEvent } from "react";
-import { createApplication, type ApplicationStatus } from "./api";
+import {
+  createApplication,
+  updateApplication,
+  type ApplicationInput,
+  type ApplicationStatus,
+  type JobApplication,
+} from "./api";
 
 interface Props {
+  editing: JobApplication | null;
   onSaved: () => void;
+  onCancel: () => void;
 }
 
 const STATUSES: ApplicationStatus[] = ["Applied", "Interviewing", "Offer", "Rejected"];
@@ -15,12 +23,12 @@ function today(): string {
   return `${d.getFullYear()}-${month}-${day}`;
 }
 
-export default function ApplicationForm({ onSaved }: Props) {
-  const [company, setCompany] = useState("");
-  const [role, setRole] = useState("");
-  const [status, setStatus] = useState<ApplicationStatus>("Applied");
-  const [dateApplied, setDateApplied] = useState(today());
-  const [notes, setNotes] = useState("");
+export default function ApplicationForm({ editing, onSaved, onCancel }: Props) {
+  const [company, setCompany] = useState(editing?.company ?? "");
+  const [role, setRole] = useState(editing?.role ?? "");
+  const [status, setStatus] = useState<ApplicationStatus>(editing?.status ?? "Applied");
+  const [dateApplied, setDateApplied] = useState(editing?.dateApplied ?? today());
+  const [notes, setNotes] = useState(editing?.notes ?? "");
   const [errors, setErrors] = useState<{ company?: string; role?: string }>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -33,27 +41,36 @@ export default function ApplicationForm({ onSaved }: Props) {
     return Object.keys(newErrors).length === 0;
   }
 
+  function resetForm() {
+    setCompany("");
+    setRole("");
+    setStatus("Applied");
+    setDateApplied(today());
+    setNotes("");
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setServerError(null);
 
     if (!validate()) return;
 
+    const payload: ApplicationInput = {
+      company: company.trim(),
+      role: role.trim(),
+      status,
+      dateApplied,
+      notes: notes.trim() || null,
+    };
+
     setSubmitting(true);
     try {
-      await createApplication({
-        company: company.trim(),
-        role: role.trim(),
-        status,
-        dateApplied,
-        notes: notes.trim() || null,
-      });
-
-      setCompany("");
-      setRole("");
-      setStatus("Applied");
-      setDateApplied(today());
-      setNotes("");
+      if (editing) {
+        await updateApplication(editing.id, payload);
+      } else {
+        await createApplication(payload);
+        resetForm();
+      }
       onSaved();
     } catch (err) {
       setServerError(err instanceof Error ? err.message : "Could not save the application.");
@@ -64,7 +81,7 @@ export default function ApplicationForm({ onSaved }: Props) {
 
   return (
     <form onSubmit={handleSubmit}>
-      <h2>Add application</h2>
+      <h2>{editing ? "Edit application" : "Add application"}</h2>
 
       <div>
         <label>
@@ -126,8 +143,14 @@ export default function ApplicationForm({ onSaved }: Props) {
       {serverError && <p>Could not save: {serverError}</p>}
 
       <button type="submit" disabled={submitting}>
-        {submitting ? "Saving..." : "Save application"}
+        {submitting ? "Saving..." : editing ? "Update application" : "Save application"}
       </button>
+
+      {editing && (
+        <button type="button" onClick={onCancel} disabled={submitting}>
+          Cancel
+        </button>
+      )}
     </form>
   );
 }
