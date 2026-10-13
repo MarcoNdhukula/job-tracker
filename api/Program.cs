@@ -103,3 +103,5 @@ applications.MapGet("/summary", async (AppDbContext db) =>
 });
 
 app.Run();
+
+public partial class Program { }
