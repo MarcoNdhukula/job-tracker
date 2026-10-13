@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { deleteApplication, getApplications, type JobApplication } from "./api";
+import History from "./History";
 
 interface Props {
   refreshKey: number;
@@ -12,6 +13,7 @@ export default function ApplicationList({ refreshKey, onEdit, onDeleted }: Props
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [historyId, setHistoryId] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -41,6 +43,7 @@ export default function ApplicationList({ refreshKey, onEdit, onDeleted }: Props
     setActionError(null);
     try {
       await deleteApplication(app.id);
+      if (historyId === app.id) setHistoryId(null);
       onDeleted(app.id);
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Could not delete the application.");
@@ -75,6 +78,12 @@ export default function ApplicationList({ refreshKey, onEdit, onDeleted }: Props
                 <button type="button" onClick={() => onEdit(app)}>
                   Edit
                 </button>{" "}
+                <button
+                  type="button"
+                  onClick={() => setHistoryId(historyId === app.id ? null : app.id)}
+                >
+                  {historyId === app.id ? "Hide history" : "History"}
+                </button>{" "}
                 <button type="button" onClick={() => handleDelete(app)}>
                   Delete
                 </button>
@@ -83,6 +92,10 @@ export default function ApplicationList({ refreshKey, onEdit, onDeleted }: Props
           ))}
         </tbody>
       </table>
+
+      {historyId !== null && (
+        <History applicationId={historyId} onClose={() => setHistoryId(null)} />
+      )}
     </>
   );
 }

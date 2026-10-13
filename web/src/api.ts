@@ -65,3 +65,16 @@ export async function getSummary(): Promise<ApplicationSummary> {
   await ensureOk(response);
   return response.json();
 }
+
+export interface StatusChange {
+  id: number;
+  applicationId: number;
+  status: ApplicationStatus;
+  changedAt: string;
+}
+
+export async function getHistory(id: number): Promise<StatusChange[]> {
+  const response = await fetch(`${API_BASE}/${id}/history`);
+  await ensureOk(response);
+  return response.json();
+}
