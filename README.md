@@ -73,6 +73,25 @@ Open `http://localhost:5173`.
 
 The API creates `jobtracker.db` in the `api` folder on first run. The database is excluded from Git.
 
+## Running the tests
+
+The API has integration tests that start the application in memory and send real HTTP requests. They use a separate SQLite file for each run, so they never touch your `jobtracker.db`.
+
+From the root folder:
+
+```bash
+dotnet test
+```
+
+The tests cover:
+
+- Creating an application and receiving an assigned `Id`
+- Rejecting a create request with an empty company name
+- Returning `404 Not Found` for a missing record
+- Updating an application's status
+- Deleting an application and confirming it's gone
+- Returning a count for every status in the summary
+
 ## Design decisions
 
 - **Separate API and front end.** The API is a self-contained service, so a different client could use it later.
@@ -92,7 +111,6 @@ The API creates `jobtracker.db` in the `api` folder on first run. The database i
 ## What I'd add next
 
 - Styling and responsive layout
-- Automated tests for the API and form validation
 - Sorting and filtering by status or date
 - Deployment to a hosted service
 
