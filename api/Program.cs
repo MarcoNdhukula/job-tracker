@@ -1,44 +1,81 @@
+using System.Text.Json.Serialization;
+using JobTracker.Api.Data;
+using JobTracker.Api.Models;
+using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlite(builder.Configuration.GetConnectionString("Default")));
+
+// Send enums as text ("Applied") instead of numbers (0)
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
     app.MapScalarApiReference();
 }
 
-app.UseHttpsRedirection();
-
-var summaries = new[]
+// Create the database and apply migrations on startup
+using (var scope = app.Services.CreateScope())
 {
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
+    scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.Migrate();
+}
 
-app.MapGet("/weatherforecast", () =>
+var applications = app.MapGroup("/api/applications");
+
+applications.MapGet("/", async (AppDbContext db) =>
+    await db.Applications.OrderByDescending(a => a.DateApplied).ToListAsync());
+
+applications.MapGet("/{id:int}", async (int id, AppDbContext db) =>
+    await db.Applications.FindAsync(id) is JobApplication item
+        ? Results.Ok(item)
+        : Results.NotFound());
+
+applications.MapPost("/", async (JobApplication input, AppDbContext db) =>
 {
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
+    if (string.IsNullOrWhiteSpace(input.Company) || string.IsNullOrWhiteSpace(input.Role))
+        return Results.BadRequest("Company and Role are required.");
+
+    input.Id = 0; // let the database assign the Id
+    db.Applications.Add(input);
+    await db.SaveChangesAsync();
+    return Results.Created($"/api/applications/{input.Id}", input);
+});
+
+applications.MapPut("/{id:int}", async (int id, JobApplication input, AppDbContext db) =>
+{
+    var existing = await db.Applications.FindAsync(id);
+    if (existing is null)
+        return Results.NotFound();
+
+    if (string.IsNullOrWhiteSpace(input.Company) || string.IsNullOrWhiteSpace(input.Role))
+        return Results.BadRequest("Company and Role are required.");
+
+    existing.Company = input.Company;
+    existing.Role = input.Role;
+    existing.Status = input.Status;
+    existing.DateApplied = input.DateApplied;
+    existing.Notes = input.Notes;
+    await db.SaveChangesAsync();
+    return Results.Ok(existing);
+});
+
+applications.MapDelete("/{id:int}", async (int id, AppDbContext db) =>
+{
+    var existing = await db.Applications.FindAsync(id);
+    if (existing is null)
+        return Results.NotFound();
+
+    db.Applications.Remove(existing);
+    await db.SaveChangesAsync();
+    return Results.NoContent();
+});
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
