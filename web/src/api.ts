@@ -57,3 +57,11 @@ export async function deleteApplication(id: number): Promise<void> {
   await ensureOk(response);
   // The API returns 204 No Content, so there is no body to parse
 }
+
+export type ApplicationSummary = Record<ApplicationStatus, number>;
+
+export async function getSummary(): Promise<ApplicationSummary> {
+  const response = await fetch(`${API_BASE}/summary`);
+  await ensureOk(response);
+  return response.json();
+}

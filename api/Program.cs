@@ -86,4 +86,20 @@ applications.MapDelete("/{id:int}", async (int id, AppDbContext db) =>
     return Results.NoContent();
 });
 
+applications.MapGet("/summary", async (AppDbContext db) =>
+{
+    // Count applications per status. Statuses with no rows are filled in as 0.
+    var counts = await db.Applications
+        .GroupBy(a => a.Status)
+        .Select(g => new { Status = g.Key, Count = g.Count() })
+        .ToListAsync();
+
+    var summary = Enum.GetValues<ApplicationStatus>()
+        .ToDictionary(
+            status => status.ToString(),
+            status => counts.FirstOrDefault(c => c.Status == status)?.Count ?? 0);
+
+    return Results.Ok(summary);
+});
+
 app.Run();
