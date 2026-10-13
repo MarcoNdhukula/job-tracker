@@ -1,17 +1,24 @@
 import { useEffect, useState } from "react";
 import { getApplications, type JobApplication } from "./api";
 
-export default function ApplicationList() {
+interface Props {
+  refreshKey: number;
+}
+
+export default function ApplicationList({ refreshKey }: Props) {
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     getApplications()
-      .then(setApplications)
+      .then((data) => {
+        setApplications(data);
+        setError(null);
+      })
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [refreshKey]);
 
   if (loading) return <p>Loading applications...</p>;
   if (error) return <p>Could not load applications: {error}</p>;
