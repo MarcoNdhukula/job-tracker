@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace JobTracker.Api.Models;
 
 public enum ApplicationStatus
@@ -16,4 +18,8 @@ public class JobApplication
     public ApplicationStatus Status { get; set; } = ApplicationStatus.Applied;
     public DateOnly DateApplied { get; set; }
     public string? Notes { get; set; }
+
+    // Not sent in API responses. Use GET /api/applications/{id}/history to read it.
+    [JsonIgnore]
+    public List<StatusChange> StatusHistory { get; set; } = new();
 }

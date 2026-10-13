@@ -52,6 +52,14 @@ applications.MapPost("/", async (JobApplication input, AppDbContext db) =>
         return Results.BadRequest("Company and Role are required.");
 
     input.Id = 0; // let the database assign the Id
+
+    // Record the starting status as the first entry in the history
+    input.StatusHistory.Add(new StatusChange
+    {
+        Status = input.Status,
+        ChangedAt = DateTime.UtcNow
+    });
+
     db.Applications.Add(input);
     await db.SaveChangesAsync();
     return Results.Created($"/api/applications/{input.Id}", input);
@@ -65,6 +73,16 @@ applications.MapPut("/{id:int}", async (int id, JobApplication input, AppDbConte
 
     if (string.IsNullOrWhiteSpace(input.Company) || string.IsNullOrWhiteSpace(input.Role))
         return Results.BadRequest("Company and Role are required.");
+
+    // Only record a history entry when the status actually changes
+    if (existing.Status != input.Status)
+    {
+        existing.StatusHistory.Add(new StatusChange
+        {
+            Status = input.Status,
+            ChangedAt = DateTime.UtcNow
+        });
+    }
 
     existing.Company = input.Company;
     existing.Role = input.Role;
@@ -102,6 +120,19 @@ applications.MapGet("/summary", async (AppDbContext db) =>
     return Results.Ok(summary);
 });
 
-app.Run();
+applications.MapGet("/{id:int}/history", async (int id, AppDbContext db) =>
+{
+    var exists = await db.Applications.AnyAsync(a => a.Id == id);
+    if (!exists)
+        return Results.NotFound();
 
-public partial class Program { }
+    var history = await db.StatusChanges
+        .Where(s => s.ApplicationId == id)
+        .OrderBy(s => s.ChangedAt)
+        .ThenBy(s => s.Id)
+        .ToListAsync();
+
+    return Results.Ok(history);
+});
+
+app.Run();

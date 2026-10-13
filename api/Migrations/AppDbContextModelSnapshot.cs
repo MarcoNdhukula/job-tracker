@@ -48,6 +48,43 @@ namespace JobTracker.Api.Migrations
 
                     b.ToTable("Applications");
                 });
+
+            modelBuilder.Entity("JobTracker.Api.Models.StatusChange", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ApplicationId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("ChangedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApplicationId");
+
+                    b.ToTable("StatusChanges");
+                });
+
+            modelBuilder.Entity("JobTracker.Api.Models.StatusChange", b =>
+                {
+                    b.HasOne("JobTracker.Api.Models.JobApplication", null)
+                        .WithMany("StatusHistory")
+                        .HasForeignKey("ApplicationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("JobTracker.Api.Models.JobApplication", b =>
+                {
+                    b.Navigation("StatusHistory");
+                });
 #pragma warning restore 612, 618
         }
     }

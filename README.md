@@ -83,6 +83,14 @@ From the root folder:
 dotnet test
 ```
 
+### Front end tests
+
+From the `web` folder:
+
+```bash
+npm test
+```
+
 The tests cover:
 
 - Creating an application and receiving an assigned `Id`
