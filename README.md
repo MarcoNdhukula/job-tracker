@@ -1,5 +1,7 @@
 # Job Application Tracker
 
+[![CI](https://github.com/MarcoNdhukula/job-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/MarcoNdhukula/job-tracker/actions/workflows/ci.yml)
+
 A full-stack app for tracking job applications through each stage of the process: Applied, Interviewing, Offer, or Rejected. It has a summary view of how many applications are in each status.
 
 Built with ASP.NET Core and React to practise connecting a C# backend to a TypeScript frontend.
