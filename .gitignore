@@ -5,3 +5,5 @@ dist/
 *.db
 .vs/
 .vscode/
+*.db-shm
+*.db-wal
