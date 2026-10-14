@@ -38,8 +38,30 @@ using (var scope = app.Services.CreateScope())
 
 var applications = app.MapGroup("/api/applications");
 
-applications.MapGet("/", async (AppDbContext db) =>
-    await db.Applications.OrderByDescending(a => a.DateApplied).ToListAsync());
+applications.MapGet("/", async (int? page, int? pageSize, AppDbContext db) =>
+{
+    var currentPage = page ?? 1;
+    var size = pageSize ?? 10;
+
+    if (currentPage < 1)
+        return Results.BadRequest("Page must be 1 or greater.");
+    if (size < 1 || size > 50)
+        return Results.BadRequest("Page size must be between 1 and 50.");
+
+    // Id is a tiebreaker so records with the same date keep a stable order across pages
+    var query = db.Applications
+        .OrderByDescending(a => a.DateApplied)
+        .ThenByDescending(a => a.Id);
+
+    var totalCount = await query.CountAsync();
+
+    var items = await query
+        .Skip((currentPage - 1) * size)
+        .Take(size)
+        .ToListAsync();
+
+    return Results.Ok(new PagedResult<JobApplication>(items, totalCount, currentPage, size));
+});
 
 applications.MapGet("/{id:int}", async (int id, AppDbContext db) =>
     await db.Applications.FindAsync(id) is JobApplication item

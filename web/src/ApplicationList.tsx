@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { deleteApplication, getApplications, type JobApplication } from "./api";
 import History from "./History";
 
+const PAGE_SIZE = 10;
+
 interface Props {
   refreshKey: number;
   onEdit: (app: JobApplication) => void;
@@ -10,32 +12,46 @@ interface Props {
 
 export default function ApplicationList({ refreshKey, onEdit, onDeleted }: Props) {
   const [applications, setApplications] = useState<JobApplication[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [historyId, setHistoryId] = useState<number | null>(null);
 
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+
   useEffect(() => {
     let cancelled = false;
 
-    getApplications()
-      .then((data) => {
-        if (!cancelled) {
-          setApplications(data);
-          setError(null);
+    getApplications(page, PAGE_SIZE)
+      .then((result) => {
+        if (cancelled) return;
+
+        const lastPage = Math.max(1, Math.ceil(result.totalCount / PAGE_SIZE));
+        if (page > lastPage) {
+          // The page is now past the end (for example, after deleting its last record).
+          // Move back to the last page that has data.
+          setPage(lastPage);
+          return;
         }
+
+        setApplications(result.items);
+        setTotalCount(result.totalCount);
+        setError(null);
+        setLoading(false);
       })
       .catch((err: Error) => {
-        if (!cancelled) setError(err.message);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setError(err.message);
+          setLoading(false);
+        }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [refreshKey]);
+  }, [refreshKey, page]);
 
   async function handleDelete(app: JobApplication) {
     if (!window.confirm(`Delete ${app.role} at ${app.company}?`)) return;
@@ -52,7 +68,7 @@ export default function ApplicationList({ refreshKey, onEdit, onDeleted }: Props
 
   if (loading) return <p>Loading applications...</p>;
   if (error) return <p>Could not load applications: {error}</p>;
-  if (applications.length === 0) return <p>No applications yet.</p>;
+  if (totalCount === 0) return <p>No applications yet.</p>;
 
   return (
     <>
@@ -92,6 +108,26 @@ export default function ApplicationList({ refreshKey, onEdit, onDeleted }: Props
           ))}
         </tbody>
       </table>
+
+      <div>
+        <button
+          type="button"
+          onClick={() => setPage((p) => p - 1)}
+          disabled={page <= 1}
+        >
+          Previous
+        </button>{" "}
+        <span>
+          Page {page} of {totalPages}
+        </span>{" "}
+        <button
+          type="button"
+          onClick={() => setPage((p) => p + 1)}
+          disabled={page >= totalPages}
+        >
+          Next
+        </button>
+      </div>
 
       {historyId !== null && (
         <History applicationId={historyId} onClose={() => setHistoryId(null)} />

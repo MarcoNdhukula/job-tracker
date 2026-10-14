@@ -17,6 +17,22 @@ export interface ApplicationInput {
   notes: string | null;
 }
 
+export interface PagedResult<T> {
+  items: T[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}
+
+export type ApplicationSummary = Record<ApplicationStatus, number>;
+
+export interface StatusChange {
+  id: number;
+  applicationId: number;
+  status: ApplicationStatus;
+  changedAt: string;
+}
+
 const API_BASE = "http://localhost:5216/api/applications";
 
 async function ensureOk(response: Response): Promise<void> {
@@ -26,8 +42,8 @@ async function ensureOk(response: Response): Promise<void> {
   }
 }
 
-export async function getApplications(): Promise<JobApplication[]> {
-  const response = await fetch(API_BASE);
+export async function getApplications(page = 1, pageSize = 10): Promise<PagedResult<JobApplication>> {
+  const response = await fetch(`${API_BASE}?page=${page}&pageSize=${pageSize}`);
   await ensureOk(response);
   return response.json();
 }
@@ -55,22 +71,12 @@ export async function updateApplication(id: number, data: ApplicationInput): Pro
 export async function deleteApplication(id: number): Promise<void> {
   const response = await fetch(`${API_BASE}/${id}`, { method: "DELETE" });
   await ensureOk(response);
-  // The API returns 204 No Content, so there is no body to parse
 }
-
-export type ApplicationSummary = Record<ApplicationStatus, number>;
 
 export async function getSummary(): Promise<ApplicationSummary> {
   const response = await fetch(`${API_BASE}/summary`);
   await ensureOk(response);
   return response.json();
-}
-
-export interface StatusChange {
-  id: number;
-  applicationId: number;
-  status: ApplicationStatus;
-  changedAt: string;
 }
 
 export async function getHistory(id: number): Promise<StatusChange[]> {

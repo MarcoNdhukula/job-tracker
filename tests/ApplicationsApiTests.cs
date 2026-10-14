@@ -110,6 +110,28 @@ public class ApplicationsApiTests : IClassFixture<WebApplicationFactory<Program>
         Assert.Contains("Rejected", summary.Keys);
     }
 
+    [Fact]
+    public async Task List_ReturnsPagingMetadata()
+    {
+        await CreateAsync("Paging Co");
+
+        var result = await _client.GetFromJsonAsync<PagedResult<JobApplication>>(
+            "/api/applications?page=1&pageSize=5", JsonOptions);
+
+        Assert.NotNull(result);
+        Assert.Equal(1, result.Page);
+        Assert.Equal(5, result.PageSize);
+        Assert.True(result.TotalCount >= 1);
+        Assert.True(result.Items.Count <= 5);
+    }
+
+    [Fact]
+    public async Task List_RejectsPageSizeOverLimit()
+    {
+        var response = await _client.GetAsync("/api/applications?pageSize=500");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+}
     private async Task<JobApplication> CreateAsync(string company)
     {
         var response = await _client.PostAsJsonAsync("/api/applications", NewApplication(company));
