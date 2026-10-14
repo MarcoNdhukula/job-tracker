@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using JobTracker.Api.Data;
 using JobTracker.Api.Models;
+using JobTracker.Api.Services;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 
@@ -19,6 +20,13 @@ builder.Services.AddCors(options =>
         policy.WithOrigins("http://localhost:5173")
               .AllowAnyHeader()
               .AllowAnyMethod()));
+
+// Local AI service (Ollama) running on this machine
+builder.Services.AddHttpClient<SkillExtractor>(client =>
+{
+    client.BaseAddress = new Uri("http://localhost:11434");
+    client.Timeout = TimeSpan.FromSeconds(120);
+});
 
 var app = builder.Build();
 
@@ -157,4 +165,36 @@ applications.MapGet("/{id:int}/history", async (int id, AppDbContext db) =>
     return Results.Ok(history);
 });
 
+// AI skill extraction. The model runs locally through Ollama.
+app.MapPost("/api/ai/extract-skills", async (
+    ExtractSkillsRequest request,
+    SkillExtractor extractor,
+    CancellationToken ct) =>
+{
+    if (string.IsNullOrWhiteSpace(request.JobDescription))
+        return Results.BadRequest("Job description is required.");
+    if (request.JobDescription.Length > 8000)
+        return Results.BadRequest("Job description must be 8000 characters or fewer.");
+
+    try
+    {
+        var result = await extractor.ExtractAsync(request.JobDescription, ct);
+        return Results.Ok(result);
+    }
+    catch (HttpRequestException)
+    {
+        return Results.Problem("The local AI service is not running. Start Ollama and try again.", statusCode: 503);
+    }
+    catch (TaskCanceledException)
+    {
+        return Results.Problem("The AI service took too long to respond.", statusCode: 504);
+    }
+    catch (SkillExtractionException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: 502);
+    }
+});
+
 app.Run();
+
+public partial class Program { }
