@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using JobTracker.Api.Data;
+using JobTracker.Api.Errors;
 using JobTracker.Api.Models;
 using JobTracker.Api.Services;
 using Microsoft.EntityFrameworkCore;
@@ -21,6 +22,9 @@ builder.Services.AddCors(options =>
               .AllowAnyHeader()
               .AllowAnyMethod()));
 
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+
 // Local AI service (Ollama) running on this machine
 builder.Services.AddHttpClient<SkillExtractor>(client =>
 {
@@ -30,6 +34,7 @@ builder.Services.AddHttpClient<SkillExtractor>(client =>
 
 var app = builder.Build();
 
+app.UseExceptionHandler();
 app.UseCors();
 
 if (app.Environment.IsDevelopment())
@@ -52,9 +57,9 @@ applications.MapGet("/", async (int? page, int? pageSize, AppDbContext db) =>
     var size = pageSize ?? 10;
 
     if (currentPage < 1)
-        return Results.BadRequest("Page must be 1 or greater.");
+        return Results.Problem("Page must be 1 or greater.", statusCode: 400);
     if (size < 1 || size > 50)
-        return Results.BadRequest("Page size must be between 1 and 50.");
+        return Results.Problem("Page size must be between 1 and 50.", statusCode: 400);
 
     // Id is a tiebreaker so records with the same date keep a stable order across pages
     var query = db.Applications
@@ -79,7 +84,15 @@ applications.MapGet("/{id:int}", async (int id, AppDbContext db) =>
 applications.MapPost("/", async (JobApplication input, AppDbContext db) =>
 {
     if (string.IsNullOrWhiteSpace(input.Company) || string.IsNullOrWhiteSpace(input.Role))
-        return Results.BadRequest("Company and Role are required.");
+        return Results.ValidationProblem(new Dictionary<string, string[]>
+        {
+            ["company"] = string.IsNullOrWhiteSpace(input.Company)
+                ? new[] { "Company is required." }
+                : Array.Empty<string>(),
+            ["role"] = string.IsNullOrWhiteSpace(input.Role)
+                ? new[] { "Role is required." }
+                : Array.Empty<string>()
+        });
 
     input.Id = 0; // let the database assign the Id
 
@@ -102,7 +115,15 @@ applications.MapPut("/{id:int}", async (int id, JobApplication input, AppDbConte
         return Results.NotFound();
 
     if (string.IsNullOrWhiteSpace(input.Company) || string.IsNullOrWhiteSpace(input.Role))
-        return Results.BadRequest("Company and Role are required.");
+        return Results.ValidationProblem(new Dictionary<string, string[]>
+        {
+            ["company"] = string.IsNullOrWhiteSpace(input.Company)
+                ? new[] { "Company is required." }
+                : Array.Empty<string>(),
+            ["role"] = string.IsNullOrWhiteSpace(input.Role)
+                ? new[] { "Role is required." }
+                : Array.Empty<string>()
+        });
 
     // Only record a history entry when the status actually changes
     if (existing.Status != input.Status)
@@ -172,9 +193,9 @@ app.MapPost("/api/ai/extract-skills", async (
     CancellationToken ct) =>
 {
     if (string.IsNullOrWhiteSpace(request.JobDescription))
-        return Results.BadRequest("Job description is required.");
+        return Results.Problem("Job description is required.", statusCode: 400);
     if (request.JobDescription.Length > 8000)
-        return Results.BadRequest("Job description must be 8000 characters or fewer.");
+        return Results.Problem("Job description must be 8000 characters or fewer.", statusCode: 400);
 
     try
     {

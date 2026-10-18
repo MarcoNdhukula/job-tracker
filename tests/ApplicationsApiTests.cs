@@ -132,6 +132,16 @@ public class ApplicationsApiTests : IClassFixture<WebApplicationFactory<Program>
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 }
+        [Fact]
+    public async Task Create_WithEmptyCompany_ReturnsProblemDetails()
+    {
+        var response = await _client.PostAsJsonAsync("/api/applications",
+            NewApplication(company: "   "));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains("company", body, StringComparison.OrdinalIgnoreCase);
+    }
     private async Task<JobApplication> CreateAsync(string company)
     {
         var response = await _client.PostAsJsonAsync("/api/applications", NewApplication(company));
