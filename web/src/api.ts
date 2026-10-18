@@ -33,13 +33,45 @@ export interface StatusChange {
   changedAt: string;
 }
 
+export interface SkillExtractionResult {
+  requiredSkills: string[];
+  niceToHaveSkills: string[];
+}
+
+// Shape of an ASP.NET Core ProblemDetails response
+interface ProblemDetails {
+  title?: string;
+  detail?: string;
+  errors?: Record<string, string[]>;
+}
+
 const API_BASE = "http://localhost:5216/api/applications";
+const AI_BASE = "http://localhost:5216/api/ai";
+
+// Turns a ProblemDetails body into one readable sentence.
+// Field-level validation errors are checked first, then detail, then title.
+function readProblemMessage(problem: ProblemDetails): string | null {
+  if (problem.errors) {
+    const messages = Object.values(problem.errors).flat();
+    if (messages.length > 0) return messages.join(" ");
+  }
+  if (problem.detail) return problem.detail;
+  if (problem.title) return problem.title;
+  return null;
+}
 
 async function ensureOk(response: Response): Promise<void> {
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || `Request failed with status ${response.status}`);
+  if (response.ok) return;
+
+  let message = `Request failed with status ${response.status}`;
+  try {
+    const problem = (await response.json()) as ProblemDetails;
+    message = readProblemMessage(problem) ?? message;
+  } catch {
+    // The body wasn't JSON, so keep the status-based message
   }
+
+  throw new Error(message);
 }
 
 export async function getApplications(page = 1, pageSize = 10): Promise<PagedResult<JobApplication>> {
@@ -85,13 +117,8 @@ export async function getHistory(id: number): Promise<StatusChange[]> {
   return response.json();
 }
 
-export interface SkillExtractionResult {
-  requiredSkills: string[];
-  niceToHaveSkills: string[];
-}
-
 export async function extractSkills(jobDescription: string): Promise<SkillExtractionResult> {
-  const response = await fetch("http://localhost:5216/api/ai/extract-skills", {
+  const response = await fetch(`${AI_BASE}/extract-skills`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ jobDescription }),
