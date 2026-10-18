@@ -84,3 +84,18 @@ export async function getHistory(id: number): Promise<StatusChange[]> {
   await ensureOk(response);
   return response.json();
 }
+
+export interface SkillExtractionResult {
+  requiredSkills: string[];
+  niceToHaveSkills: string[];
+}
+
+export async function extractSkills(jobDescription: string): Promise<SkillExtractionResult> {
+  const response = await fetch("http://localhost:5216/api/ai/extract-skills", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ jobDescription }),
+  });
+  await ensureOk(response);
+  return response.json();
+}

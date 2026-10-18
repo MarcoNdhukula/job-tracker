@@ -2,6 +2,7 @@ import { useState } from "react";
 import ApplicationForm from "./ApplicationForm";
 import ApplicationList from "./ApplicationList";
 import Summary from "./Summary";
+import SkillExtractor from "./SkillExtractor";
 import type { JobApplication } from "./api";
 
 export default function App() {
@@ -38,6 +39,7 @@ export default function App() {
           refresh();
         }}
       />
+      <SkillExtractor />
     </main>
   );
 }
